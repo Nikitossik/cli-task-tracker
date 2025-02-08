@@ -1,18 +1,8 @@
 import argparse
 from utils import *
+from datetime import date, time, datetime, tzinfo
 
 """
-    [
-        {
-            "id": 0,
-            "desc": str,
-            "status": [todo, in-progress, done],
-            "createdAt": date,
-            "updatedAt": date,
-            "deadline": date
-        }
-    ]
-    
     add desc [DESC] --status --deadline
     update id [ID] --desc --status --deadline
     delete id [ID]
@@ -20,25 +10,50 @@ from utils import *
     list --status [s,s,s] --deadline --sort-by --asc
 """
 
+class DeadlineAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        
+        print(parser)
+        print(namespace)
+        print(values)
+
+        # resulting_datetime = datetime.now()
+        
+        # if len(values) == 1:
+        #     resulting_datetime = parse_single_datetime(values[0])
+        # elif len(values) == 2:
+        #     resulting_datetime = parse_double_datetime(values)
+        # else:
+        #     raise argparse.ArgumentError(None, "deadline must contain maximum 2 values")
+        
+        setattr(namespace, self.dest, values)
+
+"""
+        либо сделать action который будет проверять массив [date, time]
+        либо задавать дедлайн как datetime YYYY-MM-DD 
+    """
+
 def do_add(args):
+    
         todos = load_data()
         
-        todos.append({
-            "id": get_next_id(todos),
-            "description": " ".join(args.desc),
-            "status": args.status
-        })
+        print(args)
+        
+        # todos.append({
+        #     "id": get_next_id(todos),
+        #     "description": " ".join(args.desc),
+        #     "status": 'todo',
+        #     "createdAt": datetime.now().isoformat(),
+        #     "updatedAt": datetime.now().isoformat(),
+        #     "deadline": str(args.deadline)
+        # })
                 
-        save_data(todos)
+        # save_data(todos)
                 
-        print("Todo added successfully!")
+        # print("Todo added successfully!")
         
 def do_update(args):
         todos = load_data()
-        
-        if not todo_exists(todos, args.id):
-            print(f"update: error: Todo with id {args.id} does not exit")
-            return
         
         todo = todos[args.id]
         
@@ -46,6 +61,7 @@ def do_update(args):
             todo['description'] = " ".join(args.desc)
             
         todo['status'] = args.status
+        todo['updatedAt'] = datetime.now().isoformat()
                 
         save_data(todos)
             
@@ -53,10 +69,6 @@ def do_update(args):
 
 def do_delete(args):
         todos = load_data()
-        
-        if not todo_exists(todos, args.id):
-            print(f"delete: error: Todo with id {args.id} does not exit")
-            return
         
         todos.pop(args.id)
         
@@ -73,16 +85,26 @@ COMMANDS_MAP = {
                 "names": ['desc'],
                 "type": str,
                 "nargs": "+",
-                "help": 'Description of the TODO'
+                "help": 'Description of the TODO',
             },
             {
-                "names": ['--status', '-s'],
-                "type": str,
-                "nargs": "?",
-                "help": 'Status of the TODO',
-                "choices": ['todo', 'in-progress', 'done'], 
-                "default": 'todo'
-            }
+                "names": ['--deadline-date', '-dd'],
+                # "nargs": "*",
+                "help": 'Deadline date of the TODO in ISO8601 format', 
+                "action": DeadlineAction,
+                "dest": 'deadline',
+                # "default": datetime(date.today().year, date.today().month, date.today().day, 23,59,59)
+                "default": date.today()
+            },
+            {
+                "names": ['--deadline-time', '-dt'],
+                # "nargs": "*",
+                "help": 'Deadline date of the TODO in ISO8601 format', 
+                "action": DeadlineAction,
+                "dest": 'deadline',
+                # "default": datetime(date.today().year, date.today().month, date.today().day, 23,59,59)
+                "default": time(23,59,59)
+            },
         ]
     },
     'update': {
@@ -91,7 +113,7 @@ COMMANDS_MAP = {
         "args": [
             {
                 "names": ['id'],
-                "type": int,
+                "type": validate_id,
                 "help": 'Numeric todo id to update'
             },
             {
@@ -106,7 +128,14 @@ COMMANDS_MAP = {
                 "help": 'Status of the TODO',
                 "choices": ['todo', 'in-progress', 'done'], 
                 "default": 'todo'
-            }
+            },
+            {
+                "names": ['--deadline', '-dl'],
+                "nargs": 2,
+                "type": validate_datetime,
+                "help": 'Deadline date of the TODO in ISO8601 format', 
+                "default": date.today()
+            },
         ]
     },
     'delete': {
@@ -115,7 +144,7 @@ COMMANDS_MAP = {
         "args": [
             {
                 "names": ['id'],
-                "type": int,
+                "type": validate_id,
                 "help": 'Numeric todo id to delete'
             }
         ]
@@ -149,3 +178,4 @@ if __name__ == '__main__':
     handler, args = get_command()
     
     handler(args)
+    
