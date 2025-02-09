@@ -46,7 +46,7 @@ pip install -r requirements.txt
 
 ## Adding
 
-### Usage: 
+### Usage
 ```bash
 python main.py add desc [desc ...] [--deadline [DEADLINE ...]]
 ```
@@ -85,7 +85,7 @@ python main.py add Wash dishes --deadline 2025-12-31 12:00
 
 ## Updating
 
-### Usage: 
+### Usage
 ```bash
 python main.py update id [--desc DESC [DESC ...]] [--status {todo,in-progress,done}] [--deadline [DEADLINE ...]]
 ```
@@ -118,7 +118,7 @@ python main.py update 0 --status in-progress --deadline unset
 
 ## Deleting
 
-### Usage: 
+### Usage
 ```bash
 python main.py delete id
 ```
@@ -130,7 +130,7 @@ python main.py delete 0
 
 ## Listing
 
-### Usage: 
+### Usage
 ```bash
 python main.py list [--status [{todo,in-progress,done,all} ...]] [--deadline [DEADLINE ...]]
                            [--sort-by {id,description,deadline,createdAt,updatedAt}] [--descending]
