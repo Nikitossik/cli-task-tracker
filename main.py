@@ -1,177 +1,160 @@
 import argparse
-from utils import *
-from datetime import date, time, datetime, tzinfo
+import os
+from utils import load_data, get_next_id, save_data, DATABASE_PATH
+from config import CLI_ARGUMENTS, ARGUMENT_PARSER_OPTIONS
+from datetime import datetime
+from tabulate import tabulate
 
-"""
-    add desc [DESC] --status --deadline
-    update id [ID] --desc --status --deadline
-    delete id [ID]
-    list - все
-    list --status [s,s,s] --deadline --sort-by --asc
-"""
 
-class DeadlineAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        
-        no_deadline_keywords = {'unset'}
-        
-        deadline_value = ""
-        
-        if len(values) > 2:
-            raise argparse.ArgumentError(None, "deadline must contain maximum 2 values")
-        elif len(values) == 1 and values[0].lower() in no_deadline_keywords:
-            deadline_value = "no"
-        else:
-            date_str = " ".join(values)
-            deadline_value = parse_date(date_str)
-            
-        setattr(namespace, self.dest, deadline_value)
+def print_todos(data, empty_message="No todos were found."):
+    todo_data = [data] if type(data) is dict else data
+    todo_lists = [list(todo.values()) for todo in todo_data]
+
+    headers = [
+        "ID",
+        "Description",
+        "Status",
+        "Created at",
+        "Last updated at",
+        "Deadline",
+    ]
+
+    if len(todo_lists) == 0:
+        print(empty_message)
+    else:
+        print(tabulate(todo_lists, headers=headers, tablefmt="grid"))
+
 
 def do_add(args):
-    
-        todos = load_data()
-        
-        todos.append({
-            "id": get_next_id(todos),
-            "description": " ".join(args.desc),
-            "status": 'todo',
-            "createdAt": datetime.now().isoformat(),
-            "updatedAt": datetime.now().isoformat(),
-            "deadline": "" if args.deadline == 'no' else str(args.deadline)
-        })
-                
-        save_data(todos)
-                
-        print("Todo added successfully!")
-        
+    todos = load_data()
+
+    new_todo = {
+        "id": get_next_id(todos),
+        "description": " ".join(args.desc),
+        "status": "todo",
+        "createdAt": datetime.now().isoformat(),
+        "updatedAt": datetime.now().isoformat(),
+        "deadline": "" if args.deadline == "no" else str(args.deadline),
+    }
+
+    todos.append(new_todo)
+
+    save_data(todos)
+
+    print("\nNew todo created successfully:\n")
+    print_todos(new_todo)
+
+
 def do_update(args):
-        todos = load_data()
-        
-        todo = todos[args.id]
-        
-        if args.desc:
-            todo['description'] = " ".join(args.desc)
-            
-        if args.deadline:
-            todo["deadline"] = "" if args.deadline == 'no' else str(args.deadline)
-            
-        todo['status'] = args.status
-        todo['updatedAt'] = datetime.now().isoformat()
-                
-        save_data(todos)
-            
-        print(f"Update result:\n {todo}")
+    todos = load_data()
+
+    todo = todos[args.id]
+
+    if args.desc:
+        todo["description"] = " ".join(args.desc)
+
+    if args.deadline:
+        todo["deadline"] = "" if args.deadline == "no" else str(args.deadline)
+
+    todo["status"] = args.status
+    todo["updatedAt"] = datetime.now().isoformat()
+
+    save_data(todos)
+
+    print("\nTodo updated successfully:\n")
+    print_todos(todo)
+
 
 def do_delete(args):
-        todos = load_data()
-        
-        todos.pop(args.id)
-        
-        save_data(todos)
-        
-        print(f"Todo with id {args.id} deleted successfully")
-        
+    todos = load_data()
+
+    todo = todos.pop(args.id)
+    save_data(todos)
+
+    print(f"\nTodo with id {args.id} deleted successfully:\n")
+    print_todos(todo)
+
+
 def do_list(args):
     todos = load_data()
-    
-    pass
-        
+
+    if args.status != "all":
+        todos = [todo for todo in todos if todo["status"] in args.status]
+
+    if args.deadline:
+        if args.deadline == "no":
+            todos = [todo for todo in todos if not todo["deadline"]]
+        else:
+            todos = [
+                todo
+                for todo in todos
+                if datetime.fromisoformat(todo["deadline"]) <= args.deadline
+            ]
+
+    todos = sorted(todos, key=lambda todo: todo[args.sort_by], reverse=args.descending)
+
+    print_todos(todos)
+
+
 COMMANDS_MAP = {
-    'add': {
+    "add": {
         "handler": do_add,
-        "help": "Add a TODO item",
-        "args": [
-            {
-                "names": ['desc'],
-                "type": str,
-                "nargs": "+",
-                "help": 'Description of the TODO',
-            },
-            {
-                "names": ['--deadline', '-dl'],
-                "nargs": "*",
-                "help": 'Deadline date of the TODO in ISO8601 format', 
-                "action": DeadlineAction,
-                "default": ""
-            }
-        ]
+        "help": "Adds a new task with a description (`desc`) and an optional deadline (`--deadline`).",
+        "args": [CLI_ARGUMENTS["desc_positional"], CLI_ARGUMENTS["deadline"]],
     },
-    'update': {
+    "update": {
         "handler": do_update,
-        "help": "Update a TODO item",
+        "help": "Updates a task by id.",
         "args": [
-            {
-                "names": ['id'],
-                "type": validate_id,
-                "help": 'Numeric todo id to update'
-            },
-            {
-                "names": ['--desc', '-d'],
-                "type": str,
-                "nargs": "+",
-                "help": 'Description of the TODO'
-            },
-            {
-                "names": ['--status', '-s'],
-                "type": str,
-                "help": 'Status of the TODO',
-                "choices": ['todo', 'in-progress', 'done'], 
-                "default": 'todo'
-            },
-            {
-                "names": ['--deadline', '-dl'],
-                "nargs": "*",
-                "help": 'Deadline date of the TODO in ISO-8601 format', 
-                "action": DeadlineAction,
-                "default": ""
-            }
-        ]
+            CLI_ARGUMENTS["id"],
+            CLI_ARGUMENTS["desc_optional"],
+            CLI_ARGUMENTS["status"],
+            CLI_ARGUMENTS["deadline"],
+        ],
     },
-    'delete': {
+    "delete": {
         "handler": do_delete,
-        "help": "Delete a TODO item by id",
-        "args": [
-            {
-                "names": ['id'],
-                "type": validate_id,
-                "help": 'Numeric todo id to delete'
-            }
-        ]
+        "help": "Deletes a task by id.",
+        "args": [CLI_ARGUMENTS["id"]],
     },
     "list": {
         "handler": do_list,
-        "help": "List TODO items based on filter and sorting parameters",
+        "help": "List task items based on filter and sorting parameters.",
         "args": [
-            
-        ]
-    }
+            CLI_ARGUMENTS["filter_status"],
+            CLI_ARGUMENTS["deadline"],
+            CLI_ARGUMENTS["sort-by"],
+            CLI_ARGUMENTS["descending"],
+        ],
+    },
 }
 
-def get_command(mapping=COMMANDS_MAP):
-    
-    parser = argparse.ArgumentParser(exit_on_error=False)
 
-    subparsers = parser.add_subparsers(dest='command', help='Main commands of Task CLI') 
-    
+def get_handler(mapping=COMMANDS_MAP):
+    parser = argparse.ArgumentParser(**ARGUMENT_PARSER_OPTIONS)
+
+    subparsers = parser.add_subparsers(title="Available commands", dest="command")
+
     for command, options in mapping.items():
+        command_parser = subparsers.add_parser(command, help=options["help"])
 
-        command_parser = subparsers.add_parser(command, help=options['help'])
-        
-        for arg in options['args']:
-            names = arg.pop('names')
-            command_parser.add_argument(*names, **arg)
-    
+        for arg in options["args"]:
+            arg_copy = dict(arg)
+            names = arg_copy.pop("names")
+            command_parser.add_argument(*names, **arg_copy)
+
     line_args = parser.parse_args()
-    
-    return mapping[line_args.command]['handler'], line_args
-    
 
-if __name__ == '__main__':
-    
+    return mapping[line_args.command]["handler"], line_args
+
+
+def main():
     if not os.path.exists(DATABASE_PATH) or os.stat(DATABASE_PATH).st_size == 0:
         save_data([])
 
-    handler, args = get_command()
-    
+    handler, args = get_handler()
     handler(args)
-    
+
+
+if __name__ == "__main__":
+    main()
