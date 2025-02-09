@@ -1,7 +1,7 @@
 import json
 import os
 import argparse
-from datetime import datetime, date, time
+from datetime import datetime, time, timedelta
 
 DATABASE_PATH = './data.json'
 
@@ -12,55 +12,63 @@ def validate_id(id):
     todos = load_data()
     
     if not todo_id in [todo['id'] for todo in todos]:
-        raise argparse.ArgumentTypeError(f"Todo with id {id} does not exit")
+        raise argparse.ArgumentTypeError(None, f"Todo with id {id} does not exit")
     
     return todo_id        
 
-def validate_datetime(dateparts):
+def check_for_keywords(date_str):
     
-    print("datetime: ", dateparts)
+    allowed_keywords = {'today', 'tomorrow'}
+    date_str = date_str.lower()
+    parts = date_str.split()
     
-    # date_part = date.fromisoformat(dateparts[0])
-    # time_part = time.fromisoformat(dateparts[1])
+    if not parts[0] in allowed_keywords:
+        raise argparse.ArgumentError(None, f"Invalid keyword provided. Choose from {allowed_keywords}")
     
-    # combined_datetime = datetime.combine(date_part, time_part)
-    # print(combined_datetime)
-    # print(combined_datetime.isoformat())
-    # return combined_datetime
-    return dateparts
+    now = datetime.now()
+    base_date = now.date() if parts[0] == "today" else now.date() + timedelta(days=1)
+    deadline_time = time(23, 59, 59)
+    
+    if len(parts) == 2:
+        try:
+            deadline_time = time.fromisoformat(parts[1])
+        except ValueError:
+            raise argparse.ArgumentError(None, "Invalid time format. Use HH:MM:SS.")
+    
+    datetime_obj = datetime.combine(base_date, deadline_time)
+        
+    if datetime_obj < now:
+        raise argparse.ArgumentError(None, "This datetime is alrady expired. Try setting for later")
 
-def check_for_keywords(datepart_string):
-    allowed_keywords = ['today', 'tomorrow']
+    return datetime_obj
+
+def parse_date(date_str):
     
-    datepart_string = datepart_string.lower()
-    
-    if datepart_string in allowed_keywords:
-        pass
+    now = datetime.now()
+
+    try:
+        # try converting the date from ISO-8601 first
+        datetime_obj = datetime.fromisoformat(date_str)
+    except ValueError:
+        # if wasn't converted successfully - try searching for keywords
+        try:
+            return check_for_keywords(date_str)
+        except argparse.ArgumentError as err:
+            raise err
     else:
-        pass
+        # split the date string and check if the second part (time) is set explicitly
+        
+        date_str_parts = date_str.replace("T", " ").split()
+        
+        if len(date_str_parts) == 1:
+            # if not - then set the end of the day
+            datetime_obj = datetime_obj.replace(hour=23, minute=59, second=59)
 
-def parse_single_datetime(datepart_string):
-    
-    """
-        how to find out if user specified time??
-    """
-    
-    # try:
-    #     datetime_date = datetime.fromisoformat(datepart_string)
-        
-    #     if datetime.now() > datetime_date:
-    #         raise argparse.ArgumentError(None, f"This date is expired. Try to set specific time or another date")
-        
-    # except ValueError as err:
-    #     # today/tommorow
-    # except argparse.ArgumentError as err:
-        
-    # else:
-        
+        # check if date is expired
+        if datetime_obj < now:
+            raise argparse.ArgumentError(None, "This datetime is alrady expired. Try setting for later")
 
-def parse_double_datetime(datepart_string):
-    pass
-
+        return datetime_obj
 def load_data(file_path = DATABASE_PATH):
     
     # return initial state if file is empty or non-existent
