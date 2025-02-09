@@ -27,7 +27,7 @@ CLI_ARGUMENTS = {
     "sort-by": {
         "names": ["--sort-by", "-s"],
         "help": "Field of sorting",
-        "choices": ["id", "description", "deadline", "createdAt", "updatedAt"],
+        "choices": ["id", "deadline", "createdAt", "updatedAt"],
         "default": "id",
     },
     "descending": {
