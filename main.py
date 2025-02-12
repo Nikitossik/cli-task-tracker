@@ -1,6 +1,6 @@
 import argparse
 import os
-from utils import load_data, get_next_id, save_data, DATABASE_PATH
+from utils import load_data, get_next_id, get_todo_by_id, save_data, DATABASE_PATH
 from config import CLI_ARGUMENTS, ARGUMENT_PARSER_OPTIONS
 from datetime import datetime
 from tabulate import tabulate
@@ -48,7 +48,7 @@ def do_add(args):
 def do_update(args):
     todos = load_data()
 
-    todo = todos[args.id]
+    todo = get_todo_by_id(args.id)
 
     if args.desc:
         todo["description"] = " ".join(args.desc)
@@ -68,8 +68,9 @@ def do_update(args):
 def do_delete(args):
     todos = load_data()
 
-    todo = todos.pop(args.id)
-    save_data(todos)
+    todo = get_todo_by_id(args.id)
+    new_todos = [todo_item for todo_item in todos if todo_item["id"] != todo["id"]]
+    save_data(new_todos)
 
     print(f"\nTodo with id {args.id} deleted successfully:\n")
     print_todos(todo)

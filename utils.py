@@ -16,7 +16,7 @@ def validate_id(id):
     if todo_id in [todo["id"] for todo in todos]:
         return todo_id
     else:
-        raise argparse.ArgumentTypeError(None, f"Todo with id {id} does not exit")
+        raise argparse.ArgumentTypeError(f"Todo with id {id} does not exit")
 
 
 def check_for_keywords(date_str):
@@ -107,3 +107,14 @@ def get_next_id(todos):
         return 0
 
     return max([todo["id"] for todo in todos]) + 1
+
+
+def get_todo_by_id(id):
+    todos = load_data()
+
+    todo_item = [todo for todo in todos if todo["id"] == id]
+
+    if todo_item:
+        return todo_item[0]
+    else:
+        raise IndexError(f"Task with id {id} was not found.")
